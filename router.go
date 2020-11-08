@@ -37,6 +37,7 @@ func (router *Router) SetMiddleware(middleware Middleware) {
 }
 
 func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	disableCors(w, r)
 	route := router.getRoute(r.URL.Path)
 
 	if route == nil {
@@ -57,7 +58,7 @@ func (router *Router) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		handler = router.middleware(handler)
 	}
 
-	disableCors(handler)(w, r)
+	handler(w, r)
 }
 
 // HandleFunc push a new entry point to the router
@@ -111,17 +112,14 @@ func (router *Router) getRoute(path string) *Route {
 	return nil
 }
 
-func disableCors(handler http.HandlerFunc) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-		w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, Accept-Encoding")
-		if r.Method == "OPTIONS" {
-			w.Header().Set("Access-Control-Max-Age", "86400")
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		handler(w, r)
-	})
+func disableCors(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Credentials", "true")
+	w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+	w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
+	w.Header().Set("Access-Control-Allow-Headers", "Accept, Authorization, Content-Type, Content-Length, Accept-Encoding")
+
+	if r.Method == "OPTIONS" {
+		w.Header().Set("Access-Control-Max-Age", "86400")
+		w.WriteHeader(http.StatusOK)
+	}
 }
