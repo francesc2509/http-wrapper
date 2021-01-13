@@ -156,6 +156,6 @@ func (route *Route) createURLFromPath() error {
 	buffer.WriteString("(/)?$")
 
 	route.url = buffer.String()
-	fmt.Println(route.url)
+	fmt.Println(route.path)
 	return nil
 }
