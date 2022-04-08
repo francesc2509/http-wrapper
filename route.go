@@ -28,11 +28,13 @@ func (route *Route) Handler() http.HandlerFunc {
 		handler = route.middleware(handler)
 	}
 
-	if group := route.group; group != nil && group.Middleware() != nil {
-		handler = group.Middleware()(handler)
+	group := route.group
+
+	if group == nil || group.Middleware() == nil {
+		return handler
 	}
 
-	return handler
+	return group.Middleware()(handler)
 }
 
 // SetHandler assigns the specified handler to the route
@@ -112,30 +114,13 @@ func (route *Route) createURLFromPath() error {
 	if strings.Contains(route.path, ":") {
 		splitURL := strings.Split(route.path[1:], "/")
 
-		for i, str := range splitURL {
+		for i, subPath := range splitURL {
 			buffer.WriteString("/")
-			paramSepIndex := strings.Index(str, ":")
+			paramSepIndex := strings.Index(subPath, ":")
 			if paramSepIndex == 0 {
-				regexIniPos := strings.Index(str, "(")
-				if regexIniPos > -1 {
-					if paramSepIndex == regexIniPos-1 {
-						return fmt.Errorf("Incorrect params: %s", route.path)
-					}
-
-					route.params = append(route.params, &Param{
-						name:  str[paramSepIndex+1 : regexIniPos],
-						start: uint32(i),
-					})
-					buffer.WriteString(str[regexIniPos:])
-				} else {
-					buffer.WriteString(".+")
-					route.params = append(route.params, &Param{
-						name:  str[paramSepIndex+1:],
-						start: uint32(i),
-					})
-				}
+				route.addParams(subPath, paramSepIndex, i, &buffer)
 			} else {
-				buffer.WriteString(str)
+				buffer.WriteString(subPath)
 			}
 		}
 	} else {
@@ -158,4 +143,29 @@ func (route *Route) createURLFromPath() error {
 	route.url = buffer.String()
 	fmt.Println(route.path)
 	return nil
+}
+
+func (route *Route) addParams(path string, paramSepIndex int, startIdx int, buffer *bytes.Buffer) (*bytes.Buffer, error) {
+	regexIniPos := strings.Index(path, "(")
+	if regexIniPos > -1 {
+		if paramSepIndex == regexIniPos-1 {
+			return nil, fmt.Errorf("Incorrect params: %s", route.path)
+		}
+
+		route.params = append(route.params, &Param{
+			name:  path[paramSepIndex+1 : regexIniPos],
+			start: uint32(startIdx),
+		})
+		buffer.WriteString(path[regexIniPos:])
+
+		return buffer, nil
+	}
+
+	buffer.WriteString(".+")
+	route.params = append(route.params, &Param{
+		name:  path[paramSepIndex+1:],
+		start: uint32(startIdx),
+	})
+
+	return buffer, nil
 }
